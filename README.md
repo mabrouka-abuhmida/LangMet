@@ -2,7 +2,6 @@
 
 ![LangMet Logo](LangeMet-Logo.png)
 
-
 **Observability and drift intelligence for LLM and RAG systems.**
 
 LangMet provides a reusable analytics layer for monitoring operational performance, retrieval quality, and evidence coverage in AI systems.
@@ -73,6 +72,12 @@ uvicorn app:app --app-dir examples/two-minute-demo --reload
 
 Open `http://127.0.0.1:8000/`.
 
+
+### Example UI Demo
+
+![Example UI Demo - Overview](examples/two-minute-demo/image/README/1770853195159.png)
+
+![Example UI Demo - Drift](examples/two-minute-demo/image/README/1770853181629.png)
 
 ## Quickstart (Pure Functions)
 
