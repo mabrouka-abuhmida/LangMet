@@ -1,6 +1,6 @@
 # LangMet
 
-![LangMet Logo](LangeMet-Logo.png)
+![LangMet Logo](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/LangeMet-Logo.png)
 
 **Observability and drift intelligence for LLM and RAG systems.**
 
@@ -75,9 +75,9 @@ Open `http://127.0.0.1:8000/`.
 
 ### Example UI Demo
 
-![Example UI Demo - Overview](examples/two-minute-demo/image/README/1770853195159.png)
+![Example UI Demo - Overview](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/examples/two-minute-demo/image/README/1770853195159.png)
 
-![Example UI Demo - Drift](examples/two-minute-demo/image/README/1770853181629.png)
+![Example UI Demo - Drift](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/examples/two-minute-demo/image/README/1770853181629.png)
 
 ## Quickstart (Pure Functions)
 
