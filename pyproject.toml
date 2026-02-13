@@ -3,8 +3,8 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "langmet"
-version = "0.1.0"
+name = "LangMet"
+version = "0.1.2"
 description = "Observability and performance metrics for LLM and RAG systems"
 readme = "README.md"
 requires-python = ">=3.10"

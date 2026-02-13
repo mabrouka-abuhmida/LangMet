@@ -1,6 +1,6 @@
 # LangMet
 
-![LangMet Logo](LangeMet-Logo.png)
+![LangMet Logo](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/LangeMet-Logo.png)
 
 **Observability and drift intelligence for LLM and RAG systems.**
 
@@ -44,7 +44,7 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
 - SQLAlchemy adapter for existing relational schemas
 - Framework-agnostic service layer
 
-## Install
+## [[Install]]
 
 ```bash
 pip install langmet
@@ -75,11 +75,11 @@ Open `http://127.0.0.1:8000/`.
 
 ### Example UI Demo
 
-![Example UI Demo - Overview](examples/two-minute-demo/image/README/1770853195159.png)
+![Example UI Demo - Overview](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/examples/two-minute-demo/image/README/1770853195159.png)
 
-![Example UI Demo - Drift](examples/two-minute-demo/image/README/1770853181629.png)
+![Example UI Demo - Drift](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/examples/two-minute-demo/image/README/1770853181629.png)
 
-## Quickstart (Pure Functions)
+## [[Quickstart]] (Pure Functions)
 
 ```python
 from datetime import datetime
@@ -155,15 +155,14 @@ citation = service.get_citation_coverage(start, end)
 
 Use this path when wiring LangMet to a real service.
 
-### 1) Capture telemetry events in your app
+- ### 1) Capture telemetry events in your app
 
 For each request or pipeline run, emit these fields:
-
 - Completion events: `provider`, `model`, `latency_ms`, `tokens_total`, `error_message`, `created_at`
 - RAG events: `top_k`, `top_n`, `retrieval_scores`, `rerank_scores`, `retrieval_latency_ms`, `rerank_latency_ms`, `created_at`
 - Citation events: `message_id`, `evidence_count`, `created_at`
 
-### 2) Example SQL schema (PostgreSQL)
+- ### 2) Example SQL schema (PostgreSQL)
 
 ```sql
 CREATE TABLE completion_logs (
