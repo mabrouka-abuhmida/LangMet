@@ -12,12 +12,11 @@ It separates analytical computation from data access, allowing teams to compute 
 
 LangMet separates **analytical intelligence** from data access so you can compute metrics from any source: SQL databases, log streams, files, or custom repositories.
 
-# Why LangMet?
+## Why LangMet?
 
 Most LLM metrics pipelines are tightly coupled to infrastructure.
 
-# LangMet:
-
+### Benefits of LangMet:
 * isolates analytics from storage
 * provides percentile-based latency monitoring
 * supports windowed drift detection (short-term vs long-term baselines)
@@ -31,7 +30,7 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
 * safety-critical AI systems
 * regulated environments
 
-## Features
+### Features
 
 - Pure analytics functions for:
   - Operational LLM metrics
