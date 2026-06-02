@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LangMet"
-version = "0.1.2"
+version = "0.2.0"
 description = "Observability and performance metrics for LLM and RAG systems"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Dr Mabrouka Abuhmida" }]
 dependencies = []
-keywords = ["llm", "rag", "analytics", "metrics", "observability"]
+keywords = ["llm", "rag", "ragas", "evaluation", "analytics", "metrics", "observability"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
