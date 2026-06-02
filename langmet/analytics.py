@@ -1,10 +1,11 @@
 """Pure analytics functions that work on generic events."""
 
+import re
 from datetime import datetime, timedelta
 from math import floor
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional, Sequence
 
-from .models import CitationMessageEvent, CompletionEvent, RagEvent
+from .models import CitationMessageEvent, CompletionEvent, RagEvent, RagaEvaluationEvent
 
 
 def compute_operational_metrics(
@@ -481,3 +482,240 @@ def _safe_log(value: float) -> float:
     from math import log
 
     return log(value)
+
+
+# ---------------------------------------------------------------------------
+# RAGAS — Retrieval-Augmented Generation Assessment metrics
+# ---------------------------------------------------------------------------
+
+_STOPWORDS = frozenset(
+    "a an the and or but in on at to for of with is are was were be been being "
+    "have has had do does did will would could should may might shall can "
+    "it its it's that this these those i me my we our you your he she him her "
+    "they them their what which who whom when where why how all any some no not "
+    "from by as if about into through during before after above below between "
+    "into through under since until while".split()
+)
+
+
+def _tokenize(text: str) -> List[str]:
+    """Lowercase, strip punctuation, remove stopwords, return token list."""
+    tokens = re.findall(r"\b[a-z0-9]+\b", text.lower())
+    return [t for t in tokens if t not in _STOPWORDS]
+
+
+def _token_set(text: str) -> set:
+    return set(_tokenize(text))
+
+
+def _f1_token_overlap(text_a: str, text_b: str) -> float:
+    """Token-level F1 between two texts."""
+    a_tokens = _tokenize(text_a)
+    b_tokens = _tokenize(text_b)
+    if not a_tokens or not b_tokens:
+        return 0.0
+    a_set = set(a_tokens)
+    b_set = set(b_tokens)
+    common = a_set & b_set
+    precision = len(common) / len(a_set)
+    recall = len(common) / len(b_set)
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
+def score_faithfulness(answer: str, contexts: Sequence[str]) -> float:
+    """Estimate faithfulness: fraction of answer tokens grounded in the contexts.
+
+    Returns a value in [0, 1]. Higher means the answer is better supported by
+    the retrieved passages. Uses token-overlap as a lightweight proxy for NLI.
+    """
+    answer_tokens = _token_set(answer)
+    if not answer_tokens:
+        return 0.0
+    context_tokens: set = set()
+    for ctx in contexts:
+        context_tokens |= _token_set(ctx)
+    return len(answer_tokens & context_tokens) / len(answer_tokens)
+
+
+def score_answer_relevancy(question: str, answer: str) -> float:
+    """Estimate answer relevancy: how much of the question is addressed by the answer.
+
+    Returns a value in [0, 1].
+    """
+    question_tokens = _token_set(question)
+    if not question_tokens:
+        return 0.0
+    answer_tokens = _token_set(answer)
+    return len(question_tokens & answer_tokens) / len(question_tokens)
+
+
+def score_context_precision(contexts: Sequence[str], ground_truth: str) -> float:
+    """Estimate context precision (signal-to-noise) using position-weighted precision.
+
+    Each context is scored by its token overlap with the ground truth; then
+    precision@k is computed as a weighted average that rewards relevant
+    contexts appearing earlier in the ranking.
+
+    Returns a value in [0, 1].
+    """
+    if not contexts or not ground_truth.strip():
+        return 0.0
+
+    gt_tokens = _token_set(ground_truth)
+    if not gt_tokens:
+        return 0.0
+
+    relevance_threshold = 0.1
+    relevant_flags = []
+    for ctx in contexts:
+        ctx_tokens = _token_set(ctx)
+        overlap = len(gt_tokens & ctx_tokens) / len(gt_tokens) if gt_tokens else 0.0
+        relevant_flags.append(overlap >= relevance_threshold)
+
+    if not any(relevant_flags):
+        return 0.0
+
+    cumulative_precision = 0.0
+    relevant_seen = 0
+    for k, is_relevant in enumerate(relevant_flags, start=1):
+        if is_relevant:
+            relevant_seen += 1
+            cumulative_precision += relevant_seen / k
+
+    total_relevant = sum(relevant_flags)
+    return cumulative_precision / total_relevant if total_relevant > 0 else 0.0
+
+
+def score_context_recall(contexts: Sequence[str], ground_truth: str) -> float:
+    """Estimate context recall: how much of the ground truth is covered by the contexts.
+
+    Returns a value in [0, 1].
+    """
+    gt_tokens = _token_set(ground_truth)
+    if not gt_tokens:
+        return 0.0
+    context_tokens: set = set()
+    for ctx in contexts:
+        context_tokens |= _token_set(ctx)
+    return len(gt_tokens & context_tokens) / len(gt_tokens)
+
+
+def score_context_relevancy(question: str, contexts: Sequence[str]) -> float:
+    """Estimate context relevancy: how relevant the retrieved contexts are to the question.
+
+    Returns a value in [0, 1].
+    """
+    question_tokens = _token_set(question)
+    if not question_tokens or not contexts:
+        return 0.0
+    context_tokens: set = set()
+    for ctx in contexts:
+        context_tokens |= _token_set(ctx)
+    if not context_tokens:
+        return 0.0
+    return len(question_tokens & context_tokens) / len(question_tokens)
+
+
+def score_answer_correctness(answer: str, ground_truth: str) -> float:
+    """Estimate answer correctness via token-level F1 against a ground truth answer.
+
+    Returns a value in [0, 1].
+    """
+    return _f1_token_overlap(answer, ground_truth)
+
+
+def score_answer_similarity(answer: str, ground_truth: str) -> float:
+    """Estimate answer semantic similarity via Jaccard coefficient on tokens.
+
+    Returns a value in [0, 1].
+    """
+    a_tokens = _token_set(answer)
+    b_tokens = _token_set(ground_truth)
+    if not a_tokens and not b_tokens:
+        return 1.0
+    if not a_tokens or not b_tokens:
+        return 0.0
+    return len(a_tokens & b_tokens) / len(a_tokens | b_tokens)
+
+
+def compute_raga_metrics(
+    events: Iterable[RagaEvaluationEvent],
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> Dict:
+    """Aggregate RAGAS evaluation scores from a collection of evaluation events.
+
+    Each field is aggregated separately; None values are excluded from averages so
+    that partial evaluations (e.g. no ground truth ⇒ no context_recall) still
+    produce valid results for the other metrics.
+    """
+    events_list = list(events)
+    if not events_list:
+        return empty_raga_metrics(start_date=start_date, end_date=end_date)
+
+    def _avg(field: str) -> Optional[float]:
+        values = [getattr(e, field) for e in events_list if getattr(e, field) is not None]
+        return sum(values) / len(values) if values else None
+
+    def _count(field: str) -> int:
+        return sum(1 for e in events_list if getattr(e, field) is not None)
+
+    metric_names = [
+        "faithfulness",
+        "answer_relevancy",
+        "context_precision",
+        "context_recall",
+        "context_relevancy",
+        "answer_correctness",
+        "answer_similarity",
+    ]
+
+    scores = {name: _avg(name) for name in metric_names}
+    counts = {name: _count(name) for name in metric_names}
+
+    # Overall RAGA score: mean of all available metric averages
+    available = [v for v in scores.values() if v is not None]
+    overall_score = sum(available) / len(available) if available else None
+
+    return {
+        "period": {
+            "start": start_date.isoformat() if start_date else None,
+            "end": end_date.isoformat() if end_date else None,
+        },
+        "overview": {
+            "total_evaluations": len(events_list),
+            "overall_score": overall_score,
+        },
+        "scores": scores,
+        "evaluation_counts": counts,
+    }
+
+
+def empty_raga_metrics(
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> Dict:
+    """Return empty RAGA metrics structure."""
+    metric_names = [
+        "faithfulness",
+        "answer_relevancy",
+        "context_precision",
+        "context_recall",
+        "context_relevancy",
+        "answer_correctness",
+        "answer_similarity",
+    ]
+    return {
+        "period": {
+            "start": start_date.isoformat() if start_date else None,
+            "end": end_date.isoformat() if end_date else None,
+        },
+        "overview": {
+            "total_evaluations": 0,
+            "overall_score": None,
+        },
+        "scores": {name: None for name in metric_names},
+        "evaluation_counts": {name: 0 for name in metric_names},
+    }

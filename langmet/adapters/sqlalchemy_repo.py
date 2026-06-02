@@ -7,7 +7,7 @@ from typing import Sequence
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..models import CitationMessageEvent, CompletionEvent, RagEvent
+from ..models import CitationMessageEvent, CompletionEvent, RagEvent, RagaEvaluationEvent
 
 
 class SQLAlchemyMetricsRepository:
@@ -106,6 +106,51 @@ class SQLAlchemyMetricsRepository:
             )
             for row in rows
         ]
+
+
+    def fetch_raga_evaluation_events(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> Sequence[RagaEvaluationEvent]:
+        rows = self.db.execute(
+            text(
+                """
+                SELECT query_id,
+                       faithfulness, answer_relevancy,
+                       context_precision, context_recall, context_relevancy,
+                       answer_correctness, answer_similarity,
+                       created_at
+                FROM raga_evaluations
+                WHERE created_at >= :start_date AND created_at <= :end_date
+                """
+            ),
+            {"start_date": start_date, "end_date": end_date},
+        ).fetchall()
+
+        return [
+            RagaEvaluationEvent(
+                query_id=str(row.query_id),
+                faithfulness=_parse_optional_float(row.faithfulness),
+                answer_relevancy=_parse_optional_float(row.answer_relevancy),
+                context_precision=_parse_optional_float(row.context_precision),
+                context_recall=_parse_optional_float(row.context_recall),
+                context_relevancy=_parse_optional_float(row.context_relevancy),
+                answer_correctness=_parse_optional_float(row.answer_correctness),
+                answer_similarity=_parse_optional_float(row.answer_similarity),
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+
+def _parse_optional_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _parse_score_list(raw_scores) -> list[float]:

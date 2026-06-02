@@ -37,3 +37,18 @@ class CitationMessageEvent:
     message_id: str
     evidence_count: int
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class RagaEvaluationEvent:
+    """Pre-computed RAGAS scores for a single RAG query."""
+
+    query_id: str
+    faithfulness: Optional[float]
+    answer_relevancy: Optional[float]
+    context_precision: Optional[float]
+    context_recall: Optional[float]
+    context_relevancy: Optional[float]
+    answer_correctness: Optional[float]
+    answer_similarity: Optional[float]
+    created_at: datetime
