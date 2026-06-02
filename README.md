@@ -12,12 +12,11 @@ It separates analytical computation from data access, allowing teams to compute 
 
 LangMet separates **analytical intelligence** from data access so you can compute metrics from any source: SQL databases, log streams, files, or custom repositories.
 
-# Why LangMet?
+## Why LangMet?
 
 Most LLM metrics pipelines are tightly coupled to infrastructure.
 
-# LangMet:
-
+### Benefits of LangMet:
 * isolates analytics from storage
 * provides percentile-based latency monitoring
 * supports windowed drift detection (short-term vs long-term baselines)
@@ -31,7 +30,7 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
 * safety-critical AI systems
 * regulated environments
 
-## Features
+### Features
 
 - Pure analytics functions for:
   - Operational LLM metrics
@@ -45,10 +44,15 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
 - SQLAlchemy adapter for existing relational schemas
 - Framework-agnostic service layer
 
-## Install
+## [[Install]]
 
 ```bash
 pip install langmet
+```
+
+or with git cli&pip
+```cmd/bash
+pip install git+https://github.com/mabrouka-abuhmida/Langmet.gi
 ```
 
 With SQLAlchemy adapter support:
@@ -80,7 +84,7 @@ Open `http://127.0.0.1:8000/`.
 
 ![Example UI Demo - Drift](https://raw.githubusercontent.com/mabrouka-abuhmida/LangMet/main/examples/two-minute-demo/image/README/1770853181629.png)
 
-## Quickstart (Pure Functions)
+## [[Quickstart]] (Pure Functions)
 
 ```python
 from datetime import datetime
@@ -188,7 +192,7 @@ windowed_drift = detect_numeric_drift_windowed(
 )
 ```
 
-## Quickstart (Repository + Service)
+## Quickstart (SQL Repository + Service)
 
 ```python
 from datetime import datetime, timedelta
@@ -210,16 +214,15 @@ citation = service.get_citation_coverage(start, end)
 
 Use this path when wiring LangMet to a real service.
 
-### 1) Capture telemetry events in your app
+- ### 1) Capture telemetry events in your app
 
 For each request or pipeline run, emit these fields:
-
 - Completion events: `provider`, `model`, `latency_ms`, `tokens_total`, `error_message`, `created_at`
 - RAG events: `top_k`, `top_n`, `retrieval_scores`, `rerank_scores`, `retrieval_latency_ms`, `rerank_latency_ms`, `created_at`
 - Citation events: `message_id`, `evidence_count`, `created_at`
 - RAGAS evaluation events: `query_id`, `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`, `context_relevancy`, `answer_correctness`, `answer_similarity`, `created_at` (all score fields are optional floats in `[0, 1]`)
 
-### 2) Example SQL schema (PostgreSQL)
+- ### 2) Example SQL schema (PostgreSQL)
 
 ```sql
 CREATE TABLE completion_logs (
