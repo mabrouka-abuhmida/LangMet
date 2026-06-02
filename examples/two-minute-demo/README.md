@@ -21,8 +21,10 @@ uvicorn app:app --app-dir examples/two-minute-demo --reload
 Open:
 
 - `http://127.0.0.1:8000/` -> demo UI
-- `http://127.0.0.1:8000/api/metrics` -> operational, RAG, citation, and RAGAS metrics JSON
+- `http://127.0.0.1:8000/api/metrics` -> operational, RAG, citation, RAGAS, and cost metrics JSON
 - `http://127.0.0.1:8000/api/raga` -> RAGAS evaluation metrics JSON
+- `http://127.0.0.1:8000/api/cost` -> cost & token-budget metrics JSON
+- `http://127.0.0.1:8000/api/alerts` -> triggered threshold alerts JSON
 - `http://127.0.0.1:8000/api/drift` -> windowed drift JSON
 
 ## What this demonstrates
@@ -31,6 +33,8 @@ Open:
 - `compute_rag_metrics(...)`
 - `compute_citation_coverage(...)`
 - `compute_raga_metrics(...)` — aggregated RAGAS scores (faithfulness, answer relevancy, context precision, context recall, context relevancy, answer correctness, answer similarity)
+- `compute_cost_metrics(...)` — per-model cost & token-budget accounting
+- `evaluate_alerts(...)` — threshold-based alerting across metrics
 - `detect_numeric_drift_windowed(...)`
 
 ![1770853195159](image/README/1770853195159.png)
