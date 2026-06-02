@@ -3,7 +3,12 @@
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
-from .analytics import compute_citation_coverage, compute_operational_metrics, compute_rag_metrics
+from .analytics import (
+    compute_citation_coverage,
+    compute_operational_metrics,
+    compute_rag_metrics,
+    compute_raga_metrics,
+)
 from .ports import MetricsRepository
 
 
@@ -39,6 +44,15 @@ class AnalyticsService:
         start, end = _normalize_period(start_date, end_date)
         events = self.repo.fetch_citation_message_events(start, end)
         return compute_citation_coverage(events)
+
+    def get_raga_metrics(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict:
+        start, end = _normalize_period(start_date, end_date)
+        events = self.repo.fetch_raga_evaluation_events(start, end)
+        return compute_raga_metrics(events, start_date=start, end_date=end)
 
 
 def _normalize_period(

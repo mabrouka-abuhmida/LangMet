@@ -37,6 +37,7 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
   - Operational LLM metrics
   - RAG performance metrics
   - Citation coverage metrics
+  - **RAGAS evaluation metrics** (faithfulness, answer relevancy, context precision, context recall, context relevancy, answer correctness, answer similarity)
 - Built-in latency percentiles (`p50`, `p90`, `p95`, `p99`) for SLO monitoring
 - Drift detection for numeric and categorical signals (PSI + TVD based)
 - Windowed drift baselines (compare last 1h vs trailing 7d automatically)
@@ -101,6 +102,60 @@ metrics = compute_operational_metrics(events)
 print(metrics["overview"]["avg_latency_ms"])
 ```
 
+RAGAS quality scoring (per-query, no external dependencies):
+
+```python
+from langmet.analytics import (
+    score_faithfulness,
+    score_answer_relevancy,
+    score_context_precision,
+    score_context_recall,
+    score_context_relevancy,
+    score_answer_correctness,
+    score_answer_similarity,
+)
+
+question = "What is the capital of France?"
+answer = "Paris is the capital of France."
+contexts = ["Paris is the capital and largest city of France."]
+ground_truth = "Paris is the capital of France."
+
+faithfulness     = score_faithfulness(answer, contexts)
+ans_relevancy    = score_answer_relevancy(question, answer)
+ctx_precision    = score_context_precision(contexts, ground_truth)
+ctx_recall       = score_context_recall(contexts, ground_truth)
+ctx_relevancy    = score_context_relevancy(question, contexts)
+ans_correctness  = score_answer_correctness(answer, ground_truth)
+ans_similarity   = score_answer_similarity(answer, ground_truth)
+```
+
+Aggregate RAGAS scores over many queries:
+
+```python
+from datetime import datetime
+from langmet.models import RagaEvaluationEvent
+from langmet.analytics import compute_raga_metrics
+
+events = [
+    RagaEvaluationEvent(
+        query_id="q1",
+        faithfulness=0.92,
+        answer_relevancy=0.88,
+        context_precision=0.80,
+        context_recall=0.85,
+        context_relevancy=0.79,
+        answer_correctness=0.83,
+        answer_similarity=0.86,
+        created_at=datetime.utcnow(),
+    ),
+    # ... more events
+]
+
+raga = compute_raga_metrics(events)
+print(raga["overview"]["overall_score"])
+print(raga["scores"]["faithfulness"])
+```
+
 Drift detection:
 
 ```python
@@ -162,6 +217,7 @@ For each request or pipeline run, emit these fields:
 - Completion events: `provider`, `model`, `latency_ms`, `tokens_total`, `error_message`, `created_at`
 - RAG events: `top_k`, `top_n`, `retrieval_scores`, `rerank_scores`, `retrieval_latency_ms`, `rerank_latency_ms`, `created_at`
 - Citation events: `message_id`, `evidence_count`, `created_at`
+- RAGAS evaluation events: `query_id`, `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`, `context_relevancy`, `answer_correctness`, `answer_similarity`, `created_at` (all score fields are optional floats in `[0, 1]`)
 
 ### 2) Example SQL schema (PostgreSQL)
 
@@ -194,9 +250,23 @@ CREATE TABLE citation_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE raga_evaluations (
+  id BIGSERIAL PRIMARY KEY,
+  query_id TEXT NOT NULL,
+  faithfulness DOUBLE PRECISION,
+  answer_relevancy DOUBLE PRECISION,
+  context_precision DOUBLE PRECISION,
+  context_recall DOUBLE PRECISION,
+  context_relevancy DOUBLE PRECISION,
+  answer_correctness DOUBLE PRECISION,
+  answer_similarity DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX idx_completion_logs_created_at ON completion_logs (created_at);
 CREATE INDEX idx_rag_logs_created_at ON rag_logs (created_at);
 CREATE INDEX idx_citation_events_created_at ON citation_events (created_at);
+CREATE INDEX idx_raga_evaluations_created_at ON raga_evaluations (created_at);
 ```
 
 ### 3) Wire repository and service
@@ -216,6 +286,7 @@ def get_metrics_payload(db: Session) -> dict:
         "operational": svc.get_operational_metrics(start, end),
         "rag": svc.get_rag_metrics(start, end),
         "citation_coverage": svc.get_citation_coverage(start, end),
+        "raga": svc.get_raga_metrics(start, end),
     }
 ```
 
@@ -259,6 +330,7 @@ Keep response keys stable:
 - `operational.overview`
 - `rag.overview`
 - `citation_coverage`
+- `raga.overview`, `raga.scores`, `raga.evaluation_counts`
 
 ### 7) Production checklist
 

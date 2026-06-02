@@ -82,6 +82,9 @@
       <h3>Citation</h3>
       <div class="grid" id="citationCards"></div>
 
+      <h3>RAGAS Quality</h3>
+      <div class="grid" id="ragaCards"></div>
+
       <h3>Windowed Drift</h3>
       <pre id="driftOutput"></pre>
     </div>
@@ -122,6 +125,25 @@
           card("Coverage", pct(cit.citation_coverage)),
           card("With Evidence", cit.messages_with_evidence),
           card("Avg Evidence / Msg", cit.avg_evidence_per_message.toFixed(2)),
+        ].join("");
+
+        const raga = metrics.raga.scores;
+        const ragaOverview = metrics.raga.overview;
+
+        function ragaScore(v) {
+          return v !== null && v !== undefined ? (v * 100).toFixed(1) + "%" : "n/a";
+        }
+
+        document.getElementById("ragaCards").innerHTML = [
+          card("Evaluations", ragaOverview.total_evaluations),
+          card("Overall Score", ragaScore(ragaOverview.overall_score)),
+          card("Faithfulness", ragaScore(raga.faithfulness)),
+          card("Answer Relevancy", ragaScore(raga.answer_relevancy)),
+          card("Context Precision", ragaScore(raga.context_precision)),
+          card("Context Recall", ragaScore(raga.context_recall)),
+          card("Context Relevancy", ragaScore(raga.context_relevancy)),
+          card("Answer Correctness", ragaScore(raga.answer_correctness)),
+          card("Answer Similarity", ragaScore(raga.answer_similarity)),
         ].join("");
 
         document.getElementById("driftOutput").textContent = JSON.stringify(drift, null, 2);

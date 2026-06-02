@@ -12,9 +12,10 @@ from langmet.analytics import (
     compute_citation_coverage,
     compute_operational_metrics,
     compute_rag_metrics,
+    compute_raga_metrics,
     detect_numeric_drift_windowed,
 )
-from langmet.models import CitationMessageEvent, CompletionEvent, RagEvent
+from langmet.models import CitationMessageEvent, CompletionEvent, RagEvent, RagaEvaluationEvent
 
 APP_DIR = Path(__file__).parent
 FRONTEND_DIR = APP_DIR / "frontend"
@@ -73,10 +74,29 @@ def _build_demo_data() -> dict:
             )
         )
 
+    raga_events = []
+    for idx in range(120):
+        created_at = now - timedelta(minutes=idx * 6)
+        has_ground_truth = idx % 4 != 0
+        raga_events.append(
+            RagaEvaluationEvent(
+                query_id=f"q-{idx}",
+                faithfulness=round(RNG.uniform(0.65, 0.98), 3),
+                answer_relevancy=round(RNG.uniform(0.60, 0.97), 3),
+                context_precision=round(RNG.uniform(0.55, 0.95), 3) if has_ground_truth else None,
+                context_recall=round(RNG.uniform(0.60, 0.96), 3) if has_ground_truth else None,
+                context_relevancy=round(RNG.uniform(0.58, 0.94), 3),
+                answer_correctness=round(RNG.uniform(0.62, 0.97), 3) if has_ground_truth else None,
+                answer_similarity=round(RNG.uniform(0.64, 0.98), 3) if has_ground_truth else None,
+                created_at=created_at,
+            )
+        )
+
     return {
         "completions": completions,
         "rag_events": rag_events,
         "citation_events": citation_events,
+        "raga_events": raga_events,
     }
 
 
@@ -94,7 +114,13 @@ def metrics() -> dict:
         "operational": compute_operational_metrics(DEMO_DATA["completions"]),
         "rag": compute_rag_metrics(DEMO_DATA["rag_events"]),
         "citation_coverage": compute_citation_coverage(DEMO_DATA["citation_events"]),
+        "raga": compute_raga_metrics(DEMO_DATA["raga_events"]),
     }
+
+
+@app.get("/api/raga")
+def raga() -> dict:
+    return compute_raga_metrics(DEMO_DATA["raga_events"])
 
 
 @app.get("/api/drift")
