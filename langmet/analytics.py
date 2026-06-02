@@ -719,3 +719,50 @@ def empty_raga_metrics(
         "scores": {name: None for name in metric_names},
         "evaluation_counts": {name: 0 for name in metric_names},
     }
+
+
+def detect_raga_drift(
+    events: Iterable["RagaEvaluationEvent"],
+    metric: str = "faithfulness",
+    current_window: timedelta = timedelta(days=1),
+    baseline_window: timedelta = timedelta(days=7),
+    reference_time: Optional[datetime] = None,
+    min_samples_per_window: int = 10,
+    psi_alert_threshold: float = 0.2,
+    mean_shift_alert_threshold: float = 0.2,
+) -> Dict:
+    """Detect drift in a RAGAS metric over time (e.g. is faithfulness degrading?).
+
+    Maps each evaluation event's score for ``metric`` to a (timestamp, value)
+    observation and runs windowed numeric drift. Events with a ``None`` value for
+    the chosen metric are skipped.
+    """
+    valid_metrics = {
+        "faithfulness",
+        "answer_relevancy",
+        "context_precision",
+        "context_recall",
+        "context_relevancy",
+        "answer_correctness",
+        "answer_similarity",
+    }
+    if metric not in valid_metrics:
+        raise ValueError(f"Unknown RAGA metric '{metric}'. Choose one of {sorted(valid_metrics)}.")
+
+    observations = [
+        (event.created_at, float(getattr(event, metric)))
+        for event in events
+        if getattr(event, metric) is not None
+    ]
+
+    drift = detect_numeric_drift_windowed(
+        observations=observations,
+        current_window=current_window,
+        baseline_window=baseline_window,
+        reference_time=reference_time,
+        min_samples_per_window=min_samples_per_window,
+        psi_alert_threshold=psi_alert_threshold,
+        mean_shift_alert_threshold=mean_shift_alert_threshold,
+    )
+    drift["metric"] = metric
+    return drift

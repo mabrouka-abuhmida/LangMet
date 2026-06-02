@@ -7,7 +7,12 @@ from typing import Optional, Sequence
 
 @dataclass(frozen=True)
 class CompletionEvent:
-    """A single completion invocation."""
+    """A single completion invocation.
+
+    ``prompt_tokens`` and ``completion_tokens`` are optional. When present they
+    enable accurate input/output cost accounting; otherwise cost analytics fall
+    back to a blended rate applied to ``tokens_total``.
+    """
 
     provider: str
     model: Optional[str]
@@ -15,6 +20,8 @@ class CompletionEvent:
     tokens_total: Optional[int]
     error_message: Optional[str]
     created_at: datetime
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from langmet.alerts import AlertThresholds, evaluate_alerts
 from langmet.analytics import (
     compute_citation_coverage,
     compute_operational_metrics,
@@ -15,6 +16,7 @@ from langmet.analytics import (
     compute_raga_metrics,
     detect_numeric_drift_windowed,
 )
+from langmet.cost import compute_cost_metrics
 from langmet.models import CitationMessageEvent, CompletionEvent, RagEvent, RagaEvaluationEvent
 
 APP_DIR = Path(__file__).parent
@@ -32,18 +34,22 @@ def _build_demo_data() -> dict:
     for idx in range(250):
         created_at = now - timedelta(minutes=idx * 3)
         provider = "openai" if idx % 3 else "anthropic"
+        model = "gpt-4o-mini" if idx % 3 else "claude-3-5-sonnet"
         latency_base = 180 if idx < 40 else 120
         latency_ms = max(20, int(RNG.gauss(latency_base, 20)))
-        tokens_total = max(30, int(RNG.gauss(700, 180)))
+        prompt_tokens = max(20, int(RNG.gauss(500, 120)))
+        completion_tokens = max(10, int(RNG.gauss(200, 60)))
         error_message = "timeout" if idx % 37 == 0 else None
         completions.append(
             CompletionEvent(
                 provider=provider,
-                model="demo-model",
+                model=model,
                 latency_ms=latency_ms,
-                tokens_total=tokens_total,
+                tokens_total=prompt_tokens + completion_tokens,
                 error_message=error_message,
                 created_at=created_at,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
             )
         )
 
@@ -115,12 +121,38 @@ def metrics() -> dict:
         "rag": compute_rag_metrics(DEMO_DATA["rag_events"]),
         "citation_coverage": compute_citation_coverage(DEMO_DATA["citation_events"]),
         "raga": compute_raga_metrics(DEMO_DATA["raga_events"]),
+        "cost": compute_cost_metrics(DEMO_DATA["completions"]),
     }
 
 
 @app.get("/api/raga")
 def raga() -> dict:
     return compute_raga_metrics(DEMO_DATA["raga_events"])
+
+
+@app.get("/api/cost")
+def cost() -> dict:
+    return compute_cost_metrics(DEMO_DATA["completions"])
+
+
+@app.get("/api/alerts")
+def alerts() -> dict:
+    operational = compute_operational_metrics(DEMO_DATA["completions"])
+    citation = compute_citation_coverage(DEMO_DATA["citation_events"])
+    raga = compute_raga_metrics(DEMO_DATA["raga_events"])
+    cost_metrics = compute_cost_metrics(DEMO_DATA["completions"])
+    return evaluate_alerts(
+        operational=operational,
+        citation=citation,
+        raga=raga,
+        cost=cost_metrics,
+        thresholds=AlertThresholds(
+            max_error_rate=0.02,
+            max_p95_latency_ms=200,
+            min_faithfulness=0.7,
+            min_citation_coverage=0.85,
+        ),
+    )
 
 
 @app.get("/api/drift")

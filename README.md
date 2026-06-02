@@ -37,12 +37,16 @@ Most LLM metrics pipelines are tightly coupled to infrastructure.
   - RAG performance metrics
   - Citation coverage metrics
   - **RAGAS evaluation metrics** (faithfulness, answer relevancy, context precision, context recall, context relevancy, answer correctness, answer similarity)
+  - **Cost & token-budget metrics** (per-model pricing, input/output accounting)
+- **Pluggable RAGAS scorers** — dependency-free token overlap by default, or embedding-backed via the `[embeddings]` extra
+- **Threshold-based alerting** (`evaluate_alerts`) across operational, cost, citation, RAGA, and drift metrics
 - Built-in latency percentiles (`p50`, `p90`, `p95`, `p99`) for SLO monitoring
 - Drift detection for numeric and categorical signals (PSI + TVD based)
-- Windowed drift baselines (compare last 1h vs trailing 7d automatically)
+- Windowed drift baselines (compare last 1h vs trailing 7d automatically), including **RAGA quality drift** over time
 - Repository interface (`MetricsRepository`) for pluggable data access
-- SQLAlchemy adapter for existing relational schemas
+- In-memory and SQLAlchemy adapters
 - Framework-agnostic service layer
+- Ships with type hints (`py.typed`)
 
 ## [[Install]]
 
@@ -59,6 +63,12 @@ With SQLAlchemy adapter support:
 
 ```bash
 pip install "langmet[sqlalchemy]"
+```
+
+With embedding-backed RAGAS scoring:
+
+```bash
+pip install "langmet[embeddings]"
 ```
 
 ## 2-Minute Demo
@@ -160,6 +170,79 @@ print(raga["overview"]["overall_score"])
 print(raga["scores"]["faithfulness"])
 ```
 
+Score queries directly (token overlap by default, or swap in embeddings):
+
+```python
+from langmet.scoring import score_query, TokenOverlapScorer
+# from langmet.scoring import EmbeddingScorer  # pip install "langmet[embeddings]"
+
+event = score_query(
+    question="What is the capital of France?",
+    answer="Paris is the capital of France.",
+    contexts=["Paris is the capital and largest city of France."],
+    ground_truth="Paris is the capital of France.",
+    query_id="q1",
+    scorer=TokenOverlapScorer(),  # or EmbeddingScorer()
+)
+# event is a RagaEvaluationEvent ready to feed into compute_raga_metrics
+```
+
+Cost & token-budget metrics:
+
+```python
+from langmet.cost import compute_cost_metrics
+from langmet.models import CompletionEvent
+from datetime import datetime
+
+events = [
+    CompletionEvent(
+        provider="openai",
+        model="gpt-4o",
+        latency_ms=300,
+        tokens_total=1500,
+        error_message=None,
+        created_at=datetime.utcnow(),
+        prompt_tokens=1000,
+        completion_tokens=500,
+    )
+]
+
+cost = compute_cost_metrics(events)            # uses DEFAULT_PRICE_TABLE
+print(cost["overview"]["total_cost_usd"])
+# Or pass your own rates (USD per 1,000 tokens):
+cost = compute_cost_metrics(events, price_table={"gpt-4o": {"input": 0.0025, "output": 0.01}})
+```
+
+Threshold-based alerting:
+
+```python
+from langmet.alerts import evaluate_alerts, AlertThresholds
+
+result = evaluate_alerts(
+    operational=operational_metrics,
+    cost=cost_metrics,
+    raga=raga_metrics,
+    thresholds=AlertThresholds(
+        max_error_rate=0.05,
+        max_p95_latency_ms=500,
+        min_faithfulness=0.7,
+        max_total_cost_usd=100.0,
+    ),
+)
+if result["triggered"]:
+    for alert in result["alerts"]:
+        print(alert["severity"], alert["message"])
+```
+
+RAGA quality drift (is faithfulness degrading over time?):
+
+```python
+from langmet.analytics import detect_raga_drift
+
+drift = detect_raga_drift(raga_events, metric="faithfulness")
+print(drift["drift_detected"])
+```
+
 Drift detection:
 
 ```python
@@ -208,6 +291,17 @@ end = datetime.utcnow()
 all_operational = service.get_operational_metrics(start, end)
 all_rag = service.get_rag_metrics(start, end)
 citation = service.get_citation_coverage(start, end)
+raga = service.get_raga_metrics(start, end)
+cost = service.get_cost_metrics(start, end)
+```
+
+For tests, demos, or batch jobs without a database, use the in-memory adapter:
+
+```python
+from langmet.adapters import InMemoryMetricsRepository
+
+repo = InMemoryMetricsRepository(completion_events=events)
+service = AnalyticsService(repo)
 ```
 
 ## Production Integration Guide

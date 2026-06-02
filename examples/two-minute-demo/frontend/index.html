@@ -85,6 +85,12 @@
       <h3>RAGAS Quality</h3>
       <div class="grid" id="ragaCards"></div>
 
+      <h3>Cost</h3>
+      <div class="grid" id="costCards"></div>
+
+      <h3>Alerts</h3>
+      <pre id="alertsOutput"></pre>
+
       <h3>Windowed Drift</h3>
       <pre id="driftOutput"></pre>
     </div>
@@ -101,6 +107,7 @@
       async function load() {
         const metrics = await fetch("/api/metrics").then((r) => r.json());
         const drift = await fetch("/api/drift").then((r) => r.json());
+        const alerts = await fetch("/api/alerts").then((r) => r.json());
 
         const op = metrics.operational.overview;
         const rag = metrics.rag.overview;
@@ -146,6 +153,14 @@
           card("Answer Similarity", ragaScore(raga.answer_similarity)),
         ].join("");
 
+        const cost = metrics.cost.overview;
+        document.getElementById("costCards").innerHTML = [
+          card("Total Cost", `$${cost.total_cost_usd.toFixed(4)}`),
+          card("Priced", cost.priced_completions),
+          card("Avg / Completion", `$${cost.avg_cost_per_completion_usd.toFixed(5)}`),
+        ].join("");
+
+        document.getElementById("alertsOutput").textContent = JSON.stringify(alerts, null, 2);
         document.getElementById("driftOutput").textContent = JSON.stringify(drift, null, 2);
       }
 
